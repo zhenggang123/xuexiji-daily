@@ -19,7 +19,7 @@ YR = 2026
 LO, HI = f"{YR}-10-12", f"{YR}-11-11"
 
 if len(sys.argv) < 2:
-    sys.exit("用法: python3 build.py <底表1.xlsx> [<底表2.xlsx> ...]")
+    print("未传入底表：仅用已累积数据重新生成页面（模板改动后固化用）")
 
 def shop_of(s):
     s = str(s)
