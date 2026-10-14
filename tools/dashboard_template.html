@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>学习机付费日报看板</title>
+<style>
+:root{
+  --page:#f9f9f7; --surface:#fcfcfb;
+  --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --y26:#2a78d6; --y25:#eb6834;
+  --good:#006300; --bad:#d03b3b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.55 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 20px 48px}
+header h1{font-size:21px;margin:0 0 2px;font-weight:700}
+.sub{color:var(--ink2);font-size:12.5px;margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:10px 14px;margin-bottom:16px}
+.bar .seg{display:flex;gap:0;border:1px solid var(--ring);border-radius:7px;overflow:hidden}
+.bar .seg button{border:0;background:transparent;padding:5px 14px;font-size:13px;cursor:pointer;color:var(--ink2)}
+.bar .seg button.on{background:var(--y26);color:#fff;font-weight:600}
+.uplabel{font-size:12.5px;color:var(--ink2)}
+.upbtn{display:inline-block;border:1px solid var(--ring);border-radius:7px;padding:5px 11px;font-size:12.5px;background:#fff;cursor:pointer;color:var(--ink)}
+.upbtn:hover{background:#f2f1ee}
+.bar input[type=file]{display:none}
+#upStatus{font-size:12px;color:var(--ink2)}
+#upStatus b{color:var(--good);font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:12px 14px}
+.card .k{font-size:12px;color:var(--ink2);margin-bottom:2px}
+.card .v{font-size:23px;font-weight:700;letter-spacing:-.3px}
+.card .v small{font-size:13px;font-weight:600;color:var(--ink2);margin-left:1px}
+.card .d{font-size:12px;margin-top:3px;color:var(--ink2)}
+.card .d .up{color:var(--bad)} .card .d .dn{color:var(--good)}
+.card .d .gup{color:var(--good)} .card .d .gdn{color:var(--bad)}
+.card .t{font-size:11px;color:var(--muted);margin-top:3px}
+.panel{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.panel h2{font-size:15px;margin:0 0 2px;font-weight:700}
+.panel .cap{font-size:12px;color:var(--muted);margin-bottom:8px}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--ink2);margin:2px 0 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.chartbox{position:relative;overflow-x:auto}
+svg{display:block}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th,td{padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+thead th{color:var(--ink2);font-weight:600;border-bottom:1px solid var(--axis);font-size:12.5px}
+thead tr.grp th{border-bottom:0;padding-bottom:0;font-size:12px;color:var(--muted)}
+tbody tr{border-bottom:1px solid var(--grid)}
+tbody tr:last-child{border-bottom:0}
+tr.sum td{font-weight:700;border-bottom:1px solid var(--axis);background:#f6f5f2}
+tr.subsum td{font-weight:600;background:#faf9f5}
+tr.mutedrow td{color:var(--muted)}
+td .shareb{display:inline-block;height:8px;border-radius:2px;background:var(--y26);vertical-align:0;margin-right:6px}
+.up{color:var(--bad)} .dn{color:var(--good)} .neu{color:var(--ink2)}
+.gup{color:var(--good)} .gdn{color:var(--bad)}
+#tip{position:fixed;pointer-events:none;background:#fff;border:1px solid var(--ring);box-shadow:0 2px 10px rgba(0,0,0,.10);border-radius:8px;padding:8px 11px;font-size:12.5px;display:none;z-index:9;color:var(--ink);line-height:1.6}
+#tip .tt{font-weight:700;margin-bottom:2px}
+footer{font-size:12px;color:var(--muted);line-height:1.8;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>学习机付费日报看板</h1>
+  <div class="sub">双11窗口 10/12–11/11 · 京东自营官旗 + POP官旗 · 讯飞学习机 · 2026 vs 2025 同窗对比 · 花费 / ROI / CPC / 点击量均剔除品专（品牌合约广告位）</div>
+</header>
+
+<div class="bar">
+  <div class="seg" id="shopSeg">
+    <button data-v="全部" class="on">全部店铺</button><button data-v="自营">自营官旗</button><button data-v="POP">POP官旗</button>
+  </div>
+  <span style="flex:1"></span>
+  <span class="uplabel">今年数据更新：</span>
+  <label class="upbtn">① 付费日报明细.xlsx<input type="file" id="fPaid" accept=".xlsx,.xls"></label>
+  <label class="upbtn">② 明细表-全渠道.xlsx<input type="file" id="fNet" accept=".xlsx,.xls"></label>
+  <span id="upStatus">内置快照：__BUILT__</span>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="panel">
+  <h2>日度花费 × ROI × 净费G比</h2>
+  <div class="cap" id="dailyCap"></div>
+  <div class="legend">
+    <span><i style="background:var(--y26)"></i>2026年</span>
+    <span><i style="background:var(--y25)"></i>2025年</span>
+    <span style="color:var(--muted)">│</span>
+    <span><svg width="22" height="10"><rect x="0" y="1" width="22" height="8" rx="2" fill="var(--y26)" opacity=".45"/></svg> 花费（柱 · 左轴）</span>
+    <span><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--y26)" stroke-width="2"/><circle cx="13" cy="5" r="3" fill="var(--y26)"/></svg> ROI（实线 · 右轴）</span>
+    <span><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--y26)" stroke-width="2" stroke-dasharray="4 3"/></svg> 净费G比×100（虚线 · 右轴）</span>
+  </div>
+  <div class="chartbox" id="dailyChart"></div>
+</div>
+
+<div class="panel">
+  <h2>分推广工具</h2>
+  <div class="cap" id="toolCap"></div>
+  <div class="tbl" id="toolTbl"></div>
+</div>
+
+<div class="panel">
+  <h2>分产品系列 · 花费结构</h2>
+  <div class="cap" id="serChartCap"></div>
+  <div class="legend"><span><i style="background:var(--y26)"></i>2026年占比</span><span><i style="background:var(--y25)"></i>2025年同期占比</span></div>
+  <div class="chartbox" id="serChart"></div>
+</div>
+
+<div class="panel">
+  <h2>分产品系列 · 型号明细</h2>
+  <div class="cap" id="serCap"></div>
+  <div class="tbl" id="serTbl"></div>
+</div>
+
+<footer>
+  口径说明：统计范围为京东自营官旗与京东POP官旗的讯飞学习机；点击量即UV；花费、ROI、CPC、点击量及全部占比统一剔除品专（品牌合约广告位，工具表中单列、不计入合计）；ROI = 总成交金额 ÷ 花费；净费G比 = 花费 ÷ 净GMV（净GMV取「明细表-全渠道」，渠道=京东，剔除合计行），日度图中净费G比已 ×100 去除百分号、与 ROI 共用右轴；型号明细按简称列示，容量/版本独立成行，系列小计按简称前缀（T/S/P/LUMIE/C）归组；同比为两年自然日历对齐（10/12 起算），累计指标对齐至今年最新数据日。内置 2025 年全量与 2026 年当前快照（__BUILT__ 生成）；页面上传仅在当前浏览器会话生效，刷新后恢复内置快照，如需固化请重新生成看板。
+</footer>
+</div>
+<div id="tip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/*__MAIN__*/
+const RAW = __DATA__;
+
+// ---------- 数据模型 ----------
+const mkPaid = a => ({y:a[0], d:a[1], shop:a[2], tool:a[3], name:a[4], ser:serOf(a[4]), fee:a[5], clk:a[6], gmv:a[7]});
+const mkNet  = a => ({y:a[0], d:a[1], shop:a[2], net:a[3]});
+let PAID = RAW.paid.map(mkPaid);
+let NET  = RAW.net.map(mkNet);
+const HEYUE = '品牌合约广告位';
+const state = {shop:'全部'};
+
+const DAYS = (()=>{ const out=[]; for(let i=12;i<=31;i++) out.push('10-'+i); for(let i=1;i<=11;i++) out.push('11-'+String(i).padStart(2,'0')); return out; })();
+
+const shopOK = s => state.shop==='全部' || s===state.shop;
+const P = (y,noHY=true) => PAID.filter(r => r.y===y && shopOK(r.shop) && (!noHY || r.tool!==HEYUE));
+const N = y => NET.filter(r => r.y===y && shopOK(r.shop));
+
+function latestPaid(y){ let m=null; for(const r of PAID) if(r.y===y && r.fee>0 && (!m||r.d>m)) m=r.d; return m; }
+function latestNet(y){ let m=null; for(const r of NET) if(r.y===y && (!m||r.d>m)) m=r.d; return m; }
+
+// ---------- 格式化 ----------
+const fmtWan = v => v==null?'—':(Math.abs(v)>=1e4 ? (v/1e4).toLocaleString('zh-CN',{maximumFractionDigits:1})+'万' : Math.round(v).toLocaleString('zh-CN'));
+const fmtMoney = v => '¥'+Math.round(v).toLocaleString('zh-CN');
+const fmtInt = v => v==null?'—':Math.round(v).toLocaleString('zh-CN');
+const fmtRoi = v => (v==null||!isFinite(v))?'—':v.toFixed(2);
+const fmtPct = v => (v==null||!isFinite(v))?'—':(v*100).toFixed(2)+'%';
+function yoyTxt(cur, base, goodWhenUp){  // goodWhenUp: true=涨为好(绿), false=涨为差, null=中性
+  if(base==null||base===0||cur==null) return '<span class="neu">—</span>';
+  const r = cur/base-1, s=(r>=0?'+':'')+(r*100).toFixed(1)+'%';
+  let cls='neu';
+  if(goodWhenUp===true)  cls = r>=0?'gup':'gdn';
+  if(goodWhenUp===false) cls = r>=0?'up':'dn';
+  return `<span class="${cls}">${s}</span>`;
+}
+function ppTxt(cur, base, goodWhenDown){ // 百分点差
+  if(cur==null||base==null||!isFinite(cur)||!isFinite(base)) return '<span class="neu">—</span>';
+  const pp=(cur-base)*100, s=(pp>=0?'+':'')+pp.toFixed(2)+'pp';
+  const cls = goodWhenDown ? (pp<=0?'gup':'up') : (pp>=0?'gup':'gdn');
+  return `<span class="${cls}">${s}</span>`;
+}
+
+// ---------- 汇总 ----------
+function sumBy(rows, keyFn){
+  const m = new Map();
+  for(const r of rows){
+    const k = keyFn(r);
+    let o = m.get(k); if(!o){o={fee:0,clk:0,gmv:0}; m.set(k,o);}
+    o.fee+=r.fee; o.clk+=r.clk; o.gmv+=r.gmv;
+  }
+  return m;
+}
+const tot = rows => { const o={fee:0,clk:0,gmv:0}; for(const r of rows){o.fee+=r.fee;o.clk+=r.clk;o.gmv+=r.gmv;} return o; };
+
+// ---------- KPI 卡 ----------
+function renderCards(){
+  const cut = latestPaid(2026) || DAYS[0];
+  const cutN = latestNet(2026);
+  const w26 = P(2026).filter(r=>r.d<=cut), w25 = P(2025).filter(r=>r.d<=cut);
+  const t26 = tot(w26), t25 = tot(w25);
+  const roi26 = t26.fee? t26.gmv/t26.fee:null, roi25 = t25.fee? t25.gmv/t25.fee:null;
+  const cpc26 = t26.clk? t26.fee/t26.clk:null, cpc25 = t25.clk? t25.fee/t25.clk:null;
+  let fg26=null, fg25=null;
+  if(cutN){
+    const f26 = tot(P(2026).filter(r=>r.d<=cutN)).fee, n26 = N(2026).filter(r=>r.d<=cutN).reduce((s,r)=>s+r.net,0);
+    const f25 = tot(P(2025).filter(r=>r.d<=cutN)).fee, n25 = N(2025).filter(r=>r.d<=cutN).reduce((s,r)=>s+r.net,0);
+    fg26 = n26? f26/n26 : null; fg25 = n25? f25/n25 : null;
+  }
+  const cards = [
+    {k:'累计花费（剔品专）', v:fmtWan(t26.fee), d:'同比 '+yoyTxt(t26.fee,t25.fee,null)+` · 去年同期 ${fmtWan(t25.fee)}`, t:`截至 ${cut}`},
+    {k:'累计ROI（剔品专）', v:fmtRoi(roi26), d:'同比 '+yoyTxt(roi26,roi25,true)+` · 去年同期 ${fmtRoi(roi25)}`, t:`截至 ${cut}`},
+    {k:'累计点击量UV（剔品专）', v:fmtWan(t26.clk), d:'同比 '+yoyTxt(t26.clk,t25.clk,true)+` · 去年同期 ${fmtWan(t25.clk)}`, t:`截至 ${cut}`},
+    {k:'CPC（剔品专）', v:cpc26==null?'—':cpc26.toFixed(2), d:'同比 '+yoyTxt(cpc26,cpc25,false)+` · 去年同期 ${cpc25==null?'—':cpc25.toFixed(2)}`, t:`截至 ${cut}`},
+    {k:'累计净费G比', v:fmtPct(fg26), d:ppTxt(fg26,fg25,true)+` · 去年同期 ${fmtPct(fg25)}`, t:cutN?`截至 ${cutN}（随净GMV更新）`:'待上传净GMV'},
+  ];
+  document.getElementById('cards').innerHTML = cards.map(c=>
+    `<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="d">${c.d}</div><div class="t">${c.t}</div></div>`).join('');
+}
+
+// ---------- 图表公用 ----------
+const tip = document.getElementById('tip');
+function showTip(ev, html){ tip.innerHTML=html; tip.style.display='block'; moveTip(ev); }
+function moveTip(ev){
+  const w=tip.offsetWidth, h=tip.offsetHeight;
+  let x=ev.clientX+14, y=ev.clientY+12;
+  if(x+w>innerWidth-8) x=ev.clientX-w-14;
+  if(y+h>innerHeight-8) y=ev.clientY-h-12;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+}
+function hideTip(){ tip.style.display='none'; }
+function niceMax(v){ if(v<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; const m = n<=1?1:n<=2?2:n<=2.5?2.5:n<=4?4:n<=5?5:n<=8?8:10; return m*p; }
+
+function dailyMap(y, rowsFn, valFn){
+  const m = new Map();
+  for(const r of rowsFn(y)){ m.set(r.d,(m.get(r.d)||0)+valFn(r)); }
+  return m;
+}
+
+// ---------- 日度综合图：花费柱(左轴) + ROI实线/净费G比×100虚线(右轴) ----------
+function renderDaily(){
+  const f26=dailyMap(2026,y=>P(y),r=>r.fee), f25=dailyMap(2025,y=>P(y),r=>r.fee);
+  const g26=dailyMap(2026,y=>P(y),r=>r.gmv), g25=dailyMap(2025,y=>P(y),r=>r.gmv);
+  const n26=dailyMap(2026,y=>N(y),r=>r.net), n25=dailyMap(2025,y=>N(y),r=>r.net);
+  const roiAt=(fm,gm,d)=>{ const f=fm.get(d)||0; return f>0? (gm.get(d)||0)/f : null; };
+  const fgAt =(fm,nm,d)=>{ const n=nm.get(d)||0; return n>0? (fm.get(d)||0)/n*100 : null; };
+  const roi26=DAYS.map(d=>roiAt(f26,g26,d)), roi25=DAYS.map(d=>roiAt(f25,g25,d));
+  const fg26 =DAYS.map(d=>fgAt(f26,n26,d)),  fg25 =DAYS.map(d=>fgAt(f25,n25,d));
+  const maxFee = niceMax(Math.max(1,...DAYS.map(d=>Math.max(f26.get(d)||0,f25.get(d)||0))));
+  const rvals=[...roi26,...roi25,...fg26,...fg25].filter(v=>v!=null);
+  const maxR = niceMax(rvals.length?Math.max(...rvals):10);
+  const W=1140,H=340,L=58,R=52,T=14,B=30, iw=W-L-R, ih=H-T-B;
+  const gw=iw/DAYS.length, bw=Math.min(13,(gw-6)/2);
+  const yFee=v=>T+ih-v/maxFee*ih, yR=v=>T+ih-v/maxR*ih, xC=i=>L+gw*i+gw/2;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:880px" font-family="inherit">`;
+  for(let i=0;i<=4;i++){
+    const y=T+ih-ih*i/4;
+    s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="${i?'var(--grid)':'var(--axis)'}" stroke-width="1"/>`;
+    s+=`<text x="${L-8}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)">${fmtWan(maxFee*i/4)}</text>`;
+    s+=`<text x="${W-R+8}" y="${y+4}" text-anchor="start" font-size="11" fill="var(--muted)">${(maxR*i/4).toFixed(0)}</text>`;
+  }
+  s+=`<text x="${L-8}" y="${T-3}" text-anchor="end" font-size="10.5" fill="var(--muted)">花费</text>`;
+  s+=`<text x="${W-R+8}" y="${T-3}" text-anchor="start" font-size="10.5" fill="var(--muted)">ROI/费比</text>`;
+  DAYS.forEach((d,i)=>{
+    if(i%3===0) s+=`<text x="${xC(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--muted)">${d}</text>`;
+    const bar=(v,x,color)=>{ if(!v||v<=0) return ''; const y=yFee(v), r2=Math.min(3,T+ih-y);
+      return `<path d="M${x},${T+ih} L${x},${y+r2} Q${x},${y} ${x+r2},${y} L${x+bw-r2},${y} Q${x+bw},${y} ${x+bw},${y+r2} L${x+bw},${T+ih} Z" fill="${color}" opacity=".45"/>`; };
+    s+=bar(f26.get(d), xC(i)-bw-1, 'var(--y26)');
+    s+=bar(f25.get(d), xC(i)+1, 'var(--y25)');
+  });
+  const line=(arr,color,dash,dots)=>{
+    let path='',pen=false,dt='';
+    arr.forEach((v,i)=>{ if(v==null){pen=false;return;} path+=(pen?'L':'M')+xC(i).toFixed(1)+','+yR(v).toFixed(1); pen=true;
+      if(dots) dt+=`<circle cx="${xC(i)}" cy="${yR(v)}" r="3" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`; });
+    return `<path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"${dash?` stroke-dasharray="4 3"`:''}/>`+dt;
+  };
+  s+=line(fg25,'var(--y25)',true,false)+line(fg26,'var(--y26)',true,false);
+  s+=line(roi25,'var(--y25)',false,true)+line(roi26,'var(--y26)',false,true);
+  DAYS.forEach((d,i)=>{ s+=`<rect data-i="${i}" x="${L+gw*i}" y="${T}" width="${gw}" height="${ih}" fill="transparent"/>`; });
+  s+=`</svg>`;
+  const box=document.getElementById('dailyChart'); box.innerHTML=s;
+  box.querySelectorAll('rect[data-i]').forEach(r=>{
+    const i=+r.getAttribute('data-i'), d=DAYS[i];
+    const row=(lab,v26,v25,fmt)=>`${lab}：<span style="color:var(--y26)">${v26!=null?fmt(v26):'—'}</span> / <span style="color:var(--y25)">${v25!=null?fmt(v25):'—'}</span><br>`;
+    const html=`<div class="tt">${d}（2026 / 2025）</div>`
+      + row('花费', f26.get(d)||null, f25.get(d)||null, fmtMoney)
+      + row('ROI', roi26[i], roi25[i], v=>v.toFixed(2))
+      + row('净费G比', fg26[i], fg25[i], v=>v.toFixed(2)+'（即 '+v.toFixed(2)+'%）');
+    r.onmousemove=ev=>showTip(ev,html); r.onmouseleave=hideTip;
+  });
+  document.getElementById('dailyCap').textContent =
+    `单日口径 · 剔品专 · ${state.shop==='全部'?'自营+POP合计':state.shop+'官旗'} · 左轴=花费，右轴=ROI与净费G比（×100 去百分号后与ROI共轴），净GMV未更新日期费G比不绘制`;
+}
+
+// ---------- 表格公用 ----------
+function cmpTable(groups, label){
+  // groups: [{name, a26:{fee,clk,gmv}, a25:{...}, muted}]
+  const t26all = groups.filter(g=>!g.muted).reduce((s,g)=>s+g.a26.fee,0) || 1;
+  const head = `<table><thead>
+    <tr class="grp"><th></th><th colspan="4">花费</th><th colspan="3">点击量（UV）</th><th colspan="3">ROI</th></tr>
+    <tr><th>${label}</th><th>2026</th><th>占比</th><th>2025同期</th><th>同比</th><th>2026</th><th>2025同期</th><th>同比</th><th>2026</th><th>2025同期</th><th>差值</th></tr>
+    </thead><tbody>`;
+  const row = g => {
+    const r26 = g.a26.fee>0? g.a26.gmv/g.a26.fee:null, r25 = g.a25.fee>0? g.a25.gmv/g.a25.fee:null;
+    const share = g.muted? null : g.a26.fee/t26all;
+    const dRoi = (r26!=null&&r25!=null)? `<span class="${r26>=r25?'gup':'gdn'}">${(r26-r25>=0?'+':'')+(r26-r25).toFixed(2)}</span>`:'<span class="neu">—</span>';
+    return `<tr${g.cls?` class="${g.cls}"`:''}><td>${g.name}</td>
+      <td>${fmtWan(g.a26.fee)}</td>
+      <td>${share==null?'—':`<span class="shareb" style="width:${Math.max(2,share*60).toFixed(0)}px"></span>${(share*100).toFixed(1)}%`}</td>
+      <td>${fmtWan(g.a25.fee)}</td><td>${yoyTxt(g.a26.fee,g.a25.fee,null)}</td>
+      <td>${fmtInt(g.a26.clk)}</td><td>${fmtInt(g.a25.clk)}</td><td>${yoyTxt(g.a26.clk,g.a25.clk,true)}</td>
+      <td>${fmtRoi(r26)}</td><td>${fmtRoi(r25)}</td><td>${dRoi}</td></tr>`;
+  };
+  return head + groups.map(row).join('') + `</tbody></table>`;
+}
+
+function buildGroups(keyFn, orderHint){
+  const cut = latestPaid(2026) || DAYS[0];
+  const rows26 = PAID.filter(r=>r.y===2026 && shopOK(r.shop) && r.d<=cut);
+  const rows25 = PAID.filter(r=>r.y===2025 && shopOK(r.shop) && r.d<=cut);
+  const m26=sumBy(rows26.filter(r=>r.tool!==HEYUE),keyFn), m25=sumBy(rows25.filter(r=>r.tool!==HEYUE),keyFn);
+  const keys=[...new Set([...m26.keys(),...m25.keys()])];
+  keys.sort((a,b)=>{
+    if(orderHint){ const ia=orderHint.indexOf(a), ib=orderHint.indexOf(b); if(ia>=0||ib>=0) return (ia<0?99:ia)-(ib<0?99:ib); }
+    return ((m26.get(b)||{fee:0}).fee-(m26.get(a)||{fee:0}).fee) || ((m25.get(b)||{fee:0}).fee-(m25.get(a)||{fee:0}).fee);
+  });
+  const Z={fee:0,clk:0,gmv:0};
+  const groups=[{name:'合计（剔品专）', a26:tot(rows26.filter(r=>r.tool!==HEYUE)), a25:tot(rows25.filter(r=>r.tool!==HEYUE)), cls:'sum', muted:true}];
+  for(const k of keys) groups.push({name:k, a26:m26.get(k)||Z, a25:m25.get(k)||Z});
+  return {groups, cut, rows26, rows25};
+}
+
+function renderToolTbl(){
+  const {groups, cut, rows26, rows25} = buildGroups(r=>r.tool);
+  const hy26=tot(rows26.filter(r=>r.tool===HEYUE)), hy25=tot(rows25.filter(r=>r.tool===HEYUE));
+  if(hy26.fee>0||hy25.fee>0) groups.push({name:'品专·'+HEYUE+'（不计入合计）', a26:hy26, a25:hy25, cls:'mutedrow', muted:true});
+  document.getElementById('toolTbl').innerHTML = cmpTable(groups,'推广工具');
+  document.getElementById('toolCap').textContent = `两年同窗累计（10/12 至 ${cut}） · ${state.shop==='全部'?'自营+POP合计':state.shop+'官旗'} · 按2026花费降序 · 合计及占比均剔品专`;
+}
+
+const SER_NAME={T:'T系列',S:'S系列',P:'P系列',LUMIE:'LUMIE系列',C:'C系列','其他':'其他/公共'};
+const SER_ORDER=['T','S','P','LUMIE','C','其他'];
+
+// ---------- 系列花费结构（横向占比条） ----------
+function renderSerChart(){
+  const {groups, cut} = buildGroups(r=>r.ser, SER_ORDER);
+  const sers = groups.filter(g=>!g.muted);
+  const tot26 = sers.reduce((s,g)=>s+g.a26.fee,0)||1, tot25 = sers.reduce((s,g)=>s+g.a25.fee,0)||1;
+  const rows = sers.map(g=>({name:SER_NAME[g.name]||g.name, s26:g.a26.fee/tot26, f26:g.a26.fee, s25:g.a25.fee/tot25, f25:g.a25.fee}));
+  const maxS = Math.max(0.05,...rows.map(r=>Math.max(r.s26,r.s25)));
+  const W=1140, labW=96, valW=170, bw=W-labW-valW-20, rowH=46, H=rows.length*rowH+8;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:760px" font-family="inherit">`;
+  rows.forEach((r,i)=>{
+    const y=i*rowH+8;
+    s+=`<text x="${labW-10}" y="${y+21}" text-anchor="end" font-size="12.5" fill="var(--ink2)" font-weight="600">${r.name}</text>`;
+    const bar=(share,fee,yy,color)=>{
+      const w=Math.max(share>0?3:0, share/maxS*bw);
+      let o=`<rect x="${labW}" y="${yy}" width="${w.toFixed(1)}" height="12" rx="2" fill="${color}"/>`;
+      o+=`<text x="${labW+w+8}" y="${yy+10.5}" font-size="11.5" fill="var(--ink2)">${(share*100).toFixed(1)}%（${fmtWan(fee)}）</text>`;
+      return o;
+    };
+    s+=bar(r.s26, r.f26, y+6, 'var(--y26)');
+    s+=bar(r.s25, r.f25, y+22, 'var(--y25)');
+    if(i) s+=`<line x1="0" x2="${W}" y1="${y-4}" y2="${y-4}" stroke="var(--grid)" stroke-width="1"/>`;
+  });
+  s+=`</svg>`;
+  document.getElementById('serChart').innerHTML=s;
+  document.getElementById('serChartCap').textContent =
+    `两年同窗累计花费占比（10/12 至 ${cut}） · 占比分母为各自年份剔品专总花费 · ${state.shop==='全部'?'自营+POP合计':state.shop+'官旗'}`;
+}
+
+// ---------- 型号明细表（容量/版本独立行） ----------
+function renderSerTbl(){
+  const cut = latestPaid(2026) || DAYS[0];
+  const rows26 = PAID.filter(r=>r.y===2026 && shopOK(r.shop) && r.d<=cut && r.tool!==HEYUE);
+  const rows25 = PAID.filter(r=>r.y===2025 && shopOK(r.shop) && r.d<=cut && r.tool!==HEYUE);
+  const m26=sumBy(rows26,r=>r.name), m25=sumBy(rows25,r=>r.name);
+  const t26=tot(rows26), t25=tot(rows25);
+  const tot26=t26.fee||1, tot25=t25.fee||1;
+  const serMap=new Map();
+  for(const n of new Set([...m26.keys(),...m25.keys()])){
+    const sr=serOf(n);
+    if(!serMap.has(sr)) serMap.set(sr,[]);
+    serMap.get(sr).push(n);
+  }
+  const Z={fee:0,clk:0,gmv:0};
+  const cell=(name,a26,a25,cls)=>{
+    const r26=a26.fee>0?a26.gmv/a26.fee:null, r25=a25.fee>0?a25.gmv/a25.fee:null;
+    const dRoi=(r26!=null&&r25!=null)?`<span class="${r26>=r25?'gup':'gdn'}">${(r26-r25>=0?'+':'')+(r26-r25).toFixed(2)}</span>`:'<span class="neu">—</span>';
+    const sh=(f,tt)=>f>0?`<span class="shareb" style="width:${Math.max(2,f/tt*60).toFixed(0)}px"></span>${(f/tt*100).toFixed(1)}%`:'—';
+    return `<tr${cls?` class="${cls}"`:''}><td>${name}</td>
+      <td>${fmtWan(a26.fee)}</td><td>${sh(a26.fee,tot26)}</td>
+      <td>${fmtWan(a25.fee)}</td><td>${sh(a25.fee,tot25)}</td>
+      <td>${yoyTxt(a26.fee,a25.fee,null)}</td>
+      <td>${fmtInt(a26.clk)}</td><td>${fmtInt(a25.clk)}</td><td>${yoyTxt(a26.clk,a25.clk,true)}</td>
+      <td>${fmtRoi(r26)}</td><td>${fmtRoi(r25)}</td><td>${dRoi}</td></tr>`;
+  };
+  let body = cell('合计（剔品专）', t26, t25, 'sum');
+  for(const sr of SER_ORDER){
+    const names=serMap.get(sr); if(!names) continue;
+    const sub26=tot(rows26.filter(r=>r.ser===sr)), sub25=tot(rows25.filter(r=>r.ser===sr));
+    body += cell(SER_NAME[sr]+' 小计', sub26, sub25, 'subsum');
+    names.sort((a,b)=>((m26.get(b)||Z).fee-(m26.get(a)||Z).fee)||((m25.get(b)||Z).fee-(m25.get(a)||Z).fee));
+    for(const n of names) body += cell('　'+n, m26.get(n)||Z, m25.get(n)||Z, '');
+  }
+  document.getElementById('serTbl').innerHTML = `<table><thead>
+    <tr class="grp"><th></th><th colspan="5">花费</th><th colspan="3">点击量（UV）</th><th colspan="3">ROI</th></tr>
+    <tr><th>产品型号</th><th>2026</th><th>占比</th><th>2025同期</th><th>占比</th><th>同比</th><th>2026</th><th>2025同期</th><th>同比</th><th>2026</th><th>2025同期</th><th>差值</th></tr>
+    </thead><tbody>${body}</tbody></table>`;
+  document.getElementById('serCap').textContent =
+    `两年同窗累计（10/12 至 ${cut}） · 型号按简称列示，容量/版本独立成行 · 占比分母为各自年份剔品专总花费 · 系列小计按 ${SER_ORDER.map(s=>SER_NAME[s]).join('/')} 归组`;
+}
+
+// ---------- 上传 ----------
+function toMMDD(v){
+  let dt=null;
+  if(v instanceof Date) dt=v;
+  else if(typeof v==='number' && isFinite(v)) dt=new Date(Math.round((v-25569)*86400000));
+  else if(typeof v==='string'){ const m=v.match(/(\d{4})[-\/年](\d{1,2})[-\/月](\d{1,2})/); if(m) return {y:+m[1], d:String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0')}; }
+  if(!dt||isNaN(dt)) return null;
+  return {y:dt.getUTCFullYear(), d:String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0')};
+}
+function serOf(name){ const m=String(name||'').match(/学习机(LUMIE|[TSPC])/); return m?m[1]:'其他'; }
+function shopOf(s){ s=String(s||''); if(s.includes('自营官旗')) return '自营'; if(s.includes('POP官旗')) return 'POP'; return null; }
+function colKey(obj, names){ const ks=Object.keys(obj); for(const n of names){ const k=ks.find(k=>String(k).trim().includes(n)); if(k) return k; } return null; }
+function num(v){ const n=typeof v==='number'?v:parseFloat(String(v??'').replace(/[,¥\s]/g,'')); return isFinite(n)?n:0; }
+
+function readSheet(file, cb){
+  const rd=new FileReader();
+  rd.onload=e=>{ try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const js=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+      cb(null,js);
+    }catch(err){ cb(err); } };
+  rd.readAsArrayBuffer(file);
+}
+function setStatus(html, ok){ const el=document.getElementById('upStatus'); el.innerHTML = ok? '<b>✓</b> '+html : html; }
+
+document.getElementById('fPaid').addEventListener('change', ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  readSheet(f,(err,js)=>{
+    if(err||!js.length){ setStatus('付费日报明细解析失败，请确认文件格式', false); return; }
+    const s=js[0];
+    const kD=colKey(s,['日期']), kShop=colKey(s,['店铺']), kTool=colKey(s,['付费渠道']), kSer=colKey(s,['产品系列']),
+          kN=colKey(s,['简称']), kFee=colKey(s,['花费']), kClk=colKey(s,['点击量']), kG=colKey(s,['总成交金额']);
+    if(!kD||!kShop||!kTool||!kFee){ setStatus('付费日报明细缺少必需列（日期/店铺/付费渠道/花费）', false); return; }
+    const out=[]; let skip=0;
+    for(const r of js){
+      const t=toMMDD(r[kD]); if(!t||t.y!==2026){skip++;continue;}
+      if(t.d<'10-12'||t.d>'11-11'){skip++;continue;}
+      if(kSer && String(r[kSer]||'')!=='讯飞学习机'){skip++;continue;}
+      const shop=shopOf(r[kShop]); if(!shop){skip++;continue;}
+      const tool=String(r[kTool]||'').trim(); if(!tool){skip++;continue;}
+      const nm=String((kN?r[kN]:'')||'公共');
+      out.push({y:2026,d:t.d,shop,tool,name:nm,ser:serOf(nm),fee:num(r[kFee]),clk:num(kClk?r[kClk]:0),gmv:num(kG?r[kG]:0)});
+    }
+    if(!out.length){ setStatus('付费日报明细中未找到 2026 年窗口内的学习机数据', false); return; }
+    PAID = PAID.filter(r=>r.y!==2026).concat(out);
+    renderAll();
+    const days=new Set(out.map(r=>r.d)), fee=out.filter(r=>r.tool!==HEYUE).reduce((s,r)=>s+r.fee,0);
+    setStatus(`付费数据已更新至 ${[...days].sort().pop()}（${days.size}天 · 剔合约花费 ${fmtWan(fee)}），仅本页生效`, true);
+  });
+});
+
+document.getElementById('fNet').addEventListener('change', ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  readSheet(f,(err,js)=>{
+    if(err||!js.length){ setStatus('明细表-全渠道解析失败，请确认文件格式', false); return; }
+    const s=js[0];
+    const kD=colKey(s,['时间','日期']), kCh=colKey(s,['渠道']), kShop=colKey(s,['店铺']), kSer=colKey(s,['产品系列']), kNet=colKey(s,['净GMV']);
+    if(!kD||!kShop||!kNet){ setStatus('明细表-全渠道缺少必需列（时间/店铺/净GMV）', false); return; }
+    const agg=new Map();
+    for(const r of js){
+      if(kCh && String(r[kCh]||'')!=='京东') continue;
+      if(kSer && String(r[kSer]||'')!=='讯飞学习机') continue;
+      const shop=shopOf(r[kShop]); if(!shop) continue;
+      const t=toMMDD(r[kD]); if(!t||t.y!==2026) continue;
+      if(t.d<'10-12'||t.d>'11-11') continue;
+      const k=t.d+'|'+shop; agg.set(k,(agg.get(k)||0)+num(r[kNet]));
+    }
+    if(!agg.size){ setStatus('明细表-全渠道中未找到 2026 年窗口内的学习机净GMV', false); return; }
+    const out=[...agg.entries()].map(([k,v])=>{ const [d,shop]=k.split('|'); return {y:2026,d,shop,net:v}; });
+    NET = NET.filter(r=>r.y!==2026).concat(out);
+    renderAll();
+    const days=[...new Set(out.map(r=>r.d))].sort();
+    setStatus(`净GMV已更新至 ${days[days.length-1]}（${days.length}天 · 合计 ${fmtWan(out.reduce((s,r)=>s+r.net,0))}），仅本页生效`, true);
+  });
+});
+
+// ---------- 店铺筛选 ----------
+document.querySelectorAll('#shopSeg button').forEach(b=>{
+  b.onclick=()=>{ state.shop=b.dataset.v;
+    document.querySelectorAll('#shopSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    renderAll(); };
+});
+
+function renderAll(){ renderCards(); renderDaily(); renderToolTbl(); renderSerChart(); renderSerTbl(); }
+renderAll();
+/*__ENDMAIN__*/
+</script>
+</body>
+</html>
