@@ -46,9 +46,15 @@ def agg_paid(df):
     return rows, sorted(df['d'].unique())
 
 def agg_net(df):
+    # 兼容两种净GMV底表：明细表-全渠道(日期列=时间) / 经营毛利查询明细(日期列=年月日,数值YYYYMMDD)
     df = df[(df['渠道'].astype(str) == '京东') & (df['产品系列'].astype(str) == '讯飞学习机')
             & (df['店铺'].astype(str).isin(['京东自营官旗', '京东POP官旗']))].copy()
-    df['时间'] = pd.to_datetime(df['时间'], errors='coerce')
+    dc = '时间' if '时间' in df.columns else '年月日'
+    def _d(v):
+        if pd.isna(v): return None
+        if isinstance(v, (int, float)): return str(int(v))
+        return str(v)
+    df['时间'] = pd.to_datetime(df[dc].map(_d), errors='coerce')
     df['净GMV'] = pd.to_numeric(df['净GMV'], errors='coerce').fillna(0)
     w = df[(df['时间'] >= LO) & (df['时间'] <= HI)].copy()
     w['d'] = w['时间'].dt.strftime('%m-%d')
