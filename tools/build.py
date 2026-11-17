@@ -30,7 +30,7 @@ def shop_of(s):
 def agg_paid(df):
     df = df[df['产品系列'].astype(str) == '讯飞学习机'].copy()
     df = df[df['付费渠道'].notna()]
-    df['日期'] = pd.to_datetime(df['日期'], errors='coerce')
+    df['日期'] = pd.to_datetime(df['日期'].astype(str).str.replace(r'\.0$', '', regex=True).str[:8], format='%Y%m%d', errors='coerce')  # 兼容数值型YYYYMMDD
     df = df[(df['日期'] >= LO) & (df['日期'] <= HI)]
     df['shop'] = df['店铺'].astype(str).map(shop_of)
     df = df[df['shop'].notna()]
